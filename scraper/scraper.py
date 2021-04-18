@@ -11,6 +11,9 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions
+from pyvirtualdisplay import Display
+
 
 # -------------------------------------------------------------
 # -------------------------------------------------------------
@@ -65,8 +68,11 @@ def get_facebook_images_url(img_links):
                     if img_url.find(".gif") == -1:
                         valid_url_found = True
                         urls.append(img_url)
-            except Exception:
+            except Exception as ex:
+                print("exeption get_facebook_images_url", ex)
                 urls.append("None")
+                driver.close()
+                exit()
         else:
             urls.append("None")
 
@@ -86,8 +92,8 @@ def image_downloader(img_links, folder_name):
             folder = os.path.join(os.getcwd(), folder_name)
             create_folder(folder)
             os.chdir(folder)
-        except Exception:
-            print("Error in changing directory.")
+        except Exception as ex:
+            print("Error in changing directory.", ex)
 
         for link in img_links:
             img_name = "None"
@@ -101,14 +107,15 @@ def image_downloader(img_links, folder_name):
                 else:
                     try:
                         urllib.request.urlretrieve(link, img_name)
-                    except Exception:
+                    except Exception as ex:
+                        # print(ex)
                         img_name = "None"
 
             img_names.append(img_name)
 
         os.chdir(parent)
-    except Exception:
-        print("Exception (image_downloader):", sys.exc_info()[0])
+    except Exception as ex:
+        print("Exception (image_downloader):", sys.exc_info()[0],ex)
 
     return img_names
 
@@ -542,35 +549,39 @@ def scrape_data(user_id, scan_list, section, elements_path, save_status, file_na
         page.append(user_id)
 
     page += [user_id + s for s in section]
+    print("[*]Scraper is on this page :",page)
 
     for i, _ in enumerate(scan_list):
         try:
+            print(f"[*]Page[{i}]: {page[i]}")
+            driver.set_page_load_timeout(20)                                                                                                                                                                       
             driver.get(page[i])
+            # print("driver.get(page):",driver.get(page[i]))
 
-            if (
-                (save_status == 0) or (save_status == 1) or (save_status == 2)
-            ):  # Only run this for friends, photos and videos
-
-                # the bar which contains all the sections
-                sections_bar = driver.find_element_by_xpath(
-                    "//*[@class='_3cz'][1]/div[2]/div[1]"
-                )
-
+            if save_status in (0,1,2):  # Only run this for friends, photos and videos
+                print("\n[*]Save_status :",save_status)
+                # the bar which contains all the sections_bar
+                sections_bar = driver.find_element_by_xpath("//body[1]/div[1]/div[1]/div[1]/div[1]/div[3]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[4]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[3]")
+                print("\n[*]Section bar:",sections_bar.text)
                 if sections_bar.text.find(scan_list[i]) == -1:
                     continue
 
             if save_status != 3:
                 scroll()
+            # for i in range(2000):
+            #     driver.
 
-            data = driver.find_elements_by_xpath(elements_path[i])
-
+            # data = driver.find_elements_by_xpath(elements_path[i])
+            # print("elements_path:", data)
             save_to_file(file_names[i], data, save_status, i)
 
-        except Exception:
+        except Exception as ex:
+
             print(
-                "Exception (scrape_data)",
-                str(i),
-                "Status =",
+                "\nException (scrape_data)",
+                ex,
+                str(page[i]),
+                "\nStatus =",
                 str(save_status),
                 sys.exc_info()[0],
             )
@@ -611,8 +622,10 @@ def create_folder(folder):
     if not os.path.exists(folder):
         os.mkdir(folder)
 
-
+# ids = target's profile names 
 def scrap_profile(ids):
+
+    # creat a folder where scraping result will be saved
     folder = os.path.join(os.getcwd(), "data")
     create_folder(folder)
     os.chdir(folder)
@@ -626,6 +639,7 @@ def scrap_profile(ids):
 
         print("\nScraping:", user_id)
 
+        # creating profile folder
         try:
             target_dir = os.path.join(folder, user_id.split("/")[-1])
             create_folder(target_dir)
@@ -636,37 +650,42 @@ def scrap_profile(ids):
 
         # ----------------------------------------------------------------------------
         print("----------------------------------------")
-        print("Friends..")
+        print("[*]Friends..")
         # setting parameters for scrape_data() to scrape friends
         scan_list = [
             "All",
-            "Mutual Friends",
-            "Following",
-            "Followers",
-            "Work",
-            "College",
-            "Current City",
-            "Hometown",
+            # "Mutual Friends",
+            # "Following",
+            # "Followers",
+            # "Work",
+            # "College",
+            # "Current City",
+            # "Hometown",
         ]
         section = [
             "/friends",
-            "/friends_mutual",
-            "/following",
-            "/followers",
-            "/friends_work",
-            "/friends_college",
-            "/friends_current_city",
-            "/friends_hometown",
+            # "/friends_mutual",
+            # "/following",
+            # "/followers",
+            # "/friends_work",
+            # "/friends_college",
+            # "/friends_current_city",
+            # "/friends_hometown",
         ]
         elements_path = [
-            "//*[contains(@id,'pagelet_timeline_medley_friends')][1]/div[2]/div/ul/li/div/a",
-            "//*[contains(@id,'pagelet_timeline_medley_friends')][1]/div[2]/div/ul/li/div/a",
-            "//*[contains(@class,'_3i9')][1]/div/div/ul/li[1]/div[2]/div/div/div/div/div[2]/ul/li/div/a",
-            "//*[contains(@class,'fbProfileBrowserListItem')]/div/a",
-            "//*[contains(@id,'pagelet_timeline_medley_friends')][1]/div[2]/div/ul/li/div/a",
-            "//*[contains(@id,'pagelet_timeline_medley_friends')][1]/div[2]/div/ul/li/div/a",
-            "//*[contains(@id,'pagelet_timeline_medley_friends')][1]/div[2]/div/ul/li/div/a",
-            "//*[contains(@id,'pagelet_timeline_medley_friends')][1]/div[2]/div/ul/li/div/a",
+        "//body[1]/div[1]/div[1]/div[1]/div[1]/div[3]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[4]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[3]/div[1]/div[2]/div[1]/a[1]/span[1]",
+        "//body[1]/div[1]/div[1]/div[1]/div[1]/div[3]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[4]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[3]/div[2]/div[2]/div[1]/a[1]/span[1]",
+        "//body[1]/div[1]/div[1]/div[1]/div[1]/div[3]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[4]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[3]/div[3]/div[2]/div[1]/a[1]/span[1]",
+        "//body[1]/div[1]/div[1]/div[1]/div[1]/div[3]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[4]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[3]/div[4]/div[2]/div[1]/a[1]/span[1]"
+
+            # "//*[contains(@id,'pagelet_timeline_medley_friends')][1]/div[2]/div/ul/li/div/a",
+            # "//*[contains(@id,'pagelet_timeline_medley_friends')][1]/div[2]/div/ul/li/div/a",
+            # "//*[contains(@class,'_3i9')][1]/div/div/ul/li[1]/div[2]/div/div/div/div/div[2]/ul/li/div/a",
+            # "//*[contains(@class,'fbProfileBrowserListItem')]/div/a",
+            # "//*[contains(@id,'pagelet_timeline_medley_friends')][1]/div[2]/div/ul/li/div/a",
+            # "//*[contains(@id,'pagelet_timeline_medley_friends')][1]/div[2]/div/ul/li/div/a",
+            # "//*[contains(@id,'pagelet_timeline_medley_friends')][1]/div[2]/div/ul/li/div/a",
+            # "//*[contains(@id,'pagelet_timeline_medley_friends')][1]/div[2]/div/ul/li/div/a",
         ]
         file_names = [
             "All Friends.txt",
@@ -685,80 +704,80 @@ def scrap_profile(ids):
 
         # ----------------------------------------------------------------------------
 
-        print("----------------------------------------")
-        print("Photos..")
-        print("Scraping Links..")
-        # setting parameters for scrape_data() to scrap photos
-        scan_list = ["'s Photos", "Photos of"]
-        section = ["/photos_all", "/photos_of"]
-        elements_path = ["//*[contains(@id, 'pic_')]"] * 2
-        file_names = ["Uploaded Photos.txt", "Tagged Photos.txt"]
-        save_status = 1
+        # print("----------------------------------------")
+        # print("Photos..")
+        # print("Scraping Links..")
+        # # setting parameters for scrape_data() to scrap photos
+        # scan_list = ["'s Photos", "Photos of"]
+        # section = ["/photos_all", "/photos_of"]
+        # elements_path = ["//*[contains(@id, 'pic_')]"] * 2
+        # file_names = ["Uploaded Photos.txt", "Tagged Photos.txt"]
+        # save_status = 1
 
-        scrape_data(user_id, scan_list, section, elements_path, save_status, file_names)
-        print("Photos Done!")
+        # scrape_data(user_id, scan_list, section, elements_path, save_status, file_names)
+        # print("Photos Done!")
 
-        # ----------------------------------------------------------------------------
-        print("----------------------------------------")
-        print("Videos:")
-        # setting parameters for scrape_data() to scrap videos
-        scan_list = ["'s Videos", "Videos of"]
-        section = ["/videos_by", "/videos_of"]
-        elements_path = [
-            "//*[contains(@id, 'pagelet_timeline_app_collection_')]/ul"
-        ] * 2
-        file_names = ["Uploaded Videos.txt", "Tagged Videos.txt"]
-        save_status = 2
+        # # ----------------------------------------------------------------------------
+        # print("----------------------------------------")
+        # print("Videos:")
+        # # setting parameters for scrape_data() to scrap videos
+        # scan_list = ["'s Videos", "Videos of"]
+        # section = ["/videos_by", "/videos_of"]
+        # elements_path = [
+        #     "//*[contains(@id, 'pagelet_timeline_app_collection_')]/ul"
+        # ] * 2
+        # file_names = ["Uploaded Videos.txt", "Tagged Videos.txt"]
+        # save_status = 2
 
-        scrape_data(user_id, scan_list, section, elements_path, save_status, file_names)
-        print("Videos Done!")
-        # ----------------------------------------------------------------------------
+        # scrape_data(user_id, scan_list, section, elements_path, save_status, file_names)
+        # print("Videos Done!")
+        # # ----------------------------------------------------------------------------
 
-        print("----------------------------------------")
-        print("About:")
-        # setting parameters for scrape_data() to scrap the about section
-        scan_list = [None] * 7
-        section = [
-            "/about?section=overview",
-            "/about?section=education",
-            "/about?section=living",
-            "/about?section=contact-info",
-            "/about?section=relationship",
-            "/about?section=bio",
-            "/about?section=year-overviews",
-        ]
-        elements_path = [
-            "//*[contains(@id, 'pagelet_timeline_app_collection_')]/ul/li/div/div[2]/div/div"
-        ] * 7
-        file_names = [
-            "Overview.txt",
-            "Work and Education.txt",
-            "Places Lived.txt",
-            "Contact and Basic Info.txt",
-            "Family and Relationships.txt",
-            "Details About.txt",
-            "Life Events.txt",
-        ]
-        save_status = 3
+        # print("----------------------------------------")
+        # print("About:")
+        # # setting parameters for scrape_data() to scrap the about section
+        # scan_list = [None] * 7
+        # section = [
+        #     "/about?section=overview",
+        #     "/about?section=education",
+        #     "/about?section=living",
+        #     "/about?section=contact-info",
+        #     "/about?section=relationship",
+        #     "/about?section=bio",
+        #     "/about?section=year-overviews",
+        # ]
+        # elements_path = [
+        #     "//*[contains(@id, 'pagelet_timeline_app_collection_')]/ul/li/div/div[2]/div/div"
+        # ] * 7
+        # file_names = [
+        #     "Overview.txt",
+        #     "Work and Education.txt",
+        #     "Places Lived.txt",
+        #     "Contact and Basic Info.txt",
+        #     "Family and Relationships.txt",
+        #     "Details About.txt",
+        #     "Life Events.txt",
+        # ]
+        # save_status = 3
 
-        scrape_data(user_id, scan_list, section, elements_path, save_status, file_names)
-        print("About Section Done!")
+        # scrape_data(user_id, scan_list, section, elements_path, save_status, file_names)
+        # print("About Section Done!")
 
-        # ----------------------------------------------------------------------------
-        print("----------------------------------------")
-        print("Posts:")
-        # setting parameters for scrape_data() to scrap posts
-        scan_list = [None]
-        section = []
-        elements_path = ['//div[@class="_5pcb _4b0l _2q8l"]']
+    #     # ----------------------------------------------------------------------------
+    #     print("----------------------------------------")
+    #     print("Posts:")
+    #     # setting parameters for scrape_data() to scrap posts
+    #     scan_list = [None]
+    #     section = []
+    #     elements_path = ['//div[@class="_5pcb _4b0l _2q8l"]']
 
-        file_names = ["Posts.txt"]
-        save_status = 4
+    #     file_names = ["Posts.txt"]
+    #     save_status = 4
 
-        scrape_data(user_id, scan_list, section, elements_path, save_status, file_names)
-        print("Posts(Statuses) Done!")
-        print("----------------------------------------")
-    # ----------------------------------------------------------------------------
+    #     scrape_data(user_id, scan_list, section, elements_path, save_status, file_names)
+    #     print("Posts(Statuses) Done!")
+    #     print("----------------------------------------")
+    # # ----------------------------------------------------------------------------
 
     print("\nProcess Completed.")
 
@@ -779,79 +798,78 @@ def safe_find_element_by_id(driver, elem_id):
 def login(email, password):
     """ Logging into our own profile """
 
+    # try:
+    global driver
+    print("[*]will try to log in...")
+    display = Display(visible=0, size=(800, 800))  
+    display.start()
+    options = Options()
+
+    #  Code to disable notifications pop up of Chrome Browser
+    options.add_argument("--disable-notifications")
+    options.add_argument("--disable-infobars")
+    options.add_argument("--mute-audio")
+    # options.add_argument("headless")
+
     try:
-        global driver
+        driver = webdriver.Chrome(executable_path="/usr/bin/chromedriver", options=options)
+        print("[*]Output of webdrive.Chrome :", driver)
 
-        options = Options()
+    except Exception as inst:
+        # print("your chromedriver",Driver,"\nchrome path",chromedriver_versions[platform_])
+        print("webdrive", webdriver.Chrome(options=options))
+        print("Error", inst)
+        print(
+            "Kindly replace the Chrome Web Driver with the latest one from "
+            "http://chromedriver.chromium.org/downloads "
+            "and also make sure you have the latest Chrome Browser version."
+            "\nYour OS: {}".format(platform_)
+        )
+        driver.close()
+        exit(1) 
 
-        #  Code to disable notifications pop up of Chrome Browser
-        options.add_argument("--disable-notifications")
-        options.add_argument("--disable-infobars")
-        options.add_argument("--mute-audio")
-        # options.add_argument("headless")
+    print("[*]Going on facebook")
+    fb_path = facebook_https_prefix + "facebook.com"
+    driver.get(fb_path)
+    
+    wait = WebDriverWait(driver, 3);
+    # wait.until(ExpectedConditions.invisibilityOfElementLocated(loadingImage));
+    print("[*]on facebook page...")
+    # filling the form
+    driver.find_element_by_name("email").send_keys(email)
+    driver.find_element_by_name("pass").send_keys(password)
 
-        try:
-            platform_ = platform.system().lower()
-            chromedriver_versions = {
-                "linux": os.path.join(
-                    os.getcwd(), CHROMEDRIVER_BINARIES_FOLDER, "chromedriver_linux64",
-                ),
-                "darwin": os.path.join(
-                    os.getcwd(), CHROMEDRIVER_BINARIES_FOLDER, "chromedriver_mac64",
-                ),
-                "windows": os.path.join(
-                    os.getcwd(), CHROMEDRIVER_BINARIES_FOLDER, "chromedriver_win32.exe",
-                ),
-            }
-
-            driver = webdriver.Chrome(
-                executable_path=chromedriver_versions[platform_], options=options
-            )
-        except Exception:
-            print(
-                "Kindly replace the Chrome Web Driver with the latest one from "
-                "http://chromedriver.chromium.org/downloads "
-                "and also make sure you have the latest Chrome Browser version."
-                "\nYour OS: {}".format(platform_)
-            )
-            exit(1)
-
-        fb_path = facebook_https_prefix + "facebook.com"
-        driver.get(fb_path)
+    try:
+        wait.until(expected_conditions.element_to_be_clickable((By.XPATH, "//button")));
         driver.maximize_window()
+        element = driver.find_element_by_name("login")
+        driver.execute_script("arguments[0].click();", element)
+        print(f"[*]Loged in into {email} Successfully...")
+    except NoSuchElementException:
+        # Facebook new design
+        driver.find_element_by_name("login").click()
 
-        # filling the form
-        driver.find_element_by_name("email").send_keys(email)
-        driver.find_element_by_name("pass").send_keys(password)
+    # if your account uses multi factor authentication
+    mfa_code_input = safe_find_element_by_id(driver, "approvals_code")
 
-        try:
-            # clicking on login button
-            driver.find_element_by_id("loginbutton").click()
-        except NoSuchElementException:
-            # Facebook new design
-            driver.find_element_by_name("login").click()
+    if mfa_code_input is None:
+        return
 
-        # if your account uses multi factor authentication
-        mfa_code_input = safe_find_element_by_id(driver, "approvals_code")
+    mfa_code_input.send_keys(input("Enter MFA code: "))
+    driver.find_element_by_id("checkpointSubmitButton").click()
 
-        if mfa_code_input is None:
-            return
+    # there are so many screens asking you to verify things. Just skip them all
+    while safe_find_element_by_id(driver, "checkpointSubmitButton") is not None:
+        dont_save_browser_radio = safe_find_element_by_id(driver, "u_0_3")
+        if dont_save_browser_radio is not None:
+            dont_save_browser_radio.click()
 
-        mfa_code_input.send_keys(input("Enter MFA code: "))
         driver.find_element_by_id("checkpointSubmitButton").click()
 
-        # there are so many screens asking you to verify things. Just skip them all
-        while safe_find_element_by_id(driver, "checkpointSubmitButton") is not None:
-            dont_save_browser_radio = safe_find_element_by_id(driver, "u_0_3")
-            if dont_save_browser_radio is not None:
-                dont_save_browser_radio.click()
-
-            driver.find_element_by_id("checkpointSubmitButton").click()
-
-    except Exception:
-        print("There's some error in log in.")
-        print(sys.exc_info()[0])
-        exit(1)
+    # except Exception:
+    #     print("There's some error in log in.")
+    #     print(sys.exc_info()[0])
+    #     exit(1)
 
 
 # -----------------------------------------------------------------------------
@@ -872,7 +890,7 @@ def scrapper(**kwargs):
     ]
 
     if len(ids) > 0:
-        print("\nStarting Scraping...")
+        print("\n[*]Starting Scraping...")
 
         login(cfg["email"], cfg["password"])
         scrap_profile(ids)
