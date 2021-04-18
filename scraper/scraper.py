@@ -4,16 +4,17 @@ import platform
 import sys
 import urllib.request
 import yaml
+import time
 
 from selenium import webdriver
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions
 from pyvirtualdisplay import Display
-
 
 # -------------------------------------------------------------
 # -------------------------------------------------------------
@@ -44,6 +45,9 @@ facebook_https_prefix = "https://"
 
 CHROMEDRIVER_BINARIES_FOLDER = "bin"
 
+display = Display(visible=0, size=(800, 800))  
+display.start()
+options = Options()
 
 # -------------------------------------------------------------
 # -------------------------------------------------------------
@@ -71,7 +75,8 @@ def get_facebook_images_url(img_links):
             except Exception as ex:
                 print("exeption get_facebook_images_url", ex)
                 urls.append("None")
-                driver.close()
+                driver.quit()
+                display.stop()
                 exit()
         else:
             urls.append("None")
@@ -134,25 +139,22 @@ def check_height():
 
 # helper function: used to scroll the page
 def scroll():
-    global old_height
-    current_scrolls = 0
+    lenOfPage = -1
+    lastCount = -1
+    match = False
 
-    while True:
-        try:
-            if current_scrolls == total_scrolls:
-                return
+    while not match:
+        lastCount = lenOfPage
 
-            old_height = driver.execute_script("return document.body.scrollHeight")
-            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-            WebDriverWait(driver, scroll_time, 0.05).until(
-                lambda driver: check_height()
-            )
-            current_scrolls += 1
-        except TimeoutException:
-            break
-
-    return
-
+        # wait for the browser to load, this time can be changed slightly ~3 seconds with no difference, but 5 seems
+        # to be stable enough
+        time.sleep(1)
+        lenOfPage = driver.execute_script(
+            "window.scrollTo(0, document.body.scrollHeight);var lenOfPage=document.body.scrollHeight;return "
+            "lenOfPage;")
+        print(f"lenOfPage: {lenOfPage}")
+        if lastCount == lenOfPage:
+            match = True
 
 # -------------------------------------------------------------
 # -------------------------------------------------------------
@@ -559,7 +561,11 @@ def scrape_data(user_id, scan_list, section, elements_path, save_status, file_na
             # print("driver.get(page):",driver.get(page[i]))
 
             if save_status in (0,1,2):  # Only run this for friends, photos and videos
-                print("\n[*]Save_status :",save_status)
+                # element = driver.find_element_by_xpath("(/html/body/div[1]/div/div[1]/div/div[3]/div/div/div[1]/div[1]/div/div/div[4]")
+                # element = driver.find_element_by_xpath("//body[1]/div[1]/div[1]/div[1]/div[1]/div[3]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[4]")
+                scroll()
+                
+                # print("\n[*]Save_status :",save_status)
                 # the bar which contains all the sections_bar
                 sections_bar = driver.find_element_by_xpath("//body[1]/div[1]/div[1]/div[1]/div[1]/div[3]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[4]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[3]")
                 print("\n[*]Section bar:",sections_bar.text)
@@ -573,18 +579,21 @@ def scrape_data(user_id, scan_list, section, elements_path, save_status, file_na
 
             # data = driver.find_elements_by_xpath(elements_path[i])
             # print("elements_path:", data)
-            save_to_file(file_names[i], data, save_status, i)
+            save_to_file(file_names[i], sections_bar, save_status, i)
 
         except Exception as ex:
 
             print(
-                "\nException (scrape_data)",
+                "\n[*]Exception (scrape_data):\n",
                 ex,
                 str(page[i]),
                 "\nStatus =",
                 str(save_status),
                 sys.exc_info()[0],
             )
+            driver.quit()
+            display.stop()
+            exit()
 
 
 # -----------------------------------------------------------------------------
@@ -637,7 +646,7 @@ def scrap_profile(ids):
         url = driver.current_url
         user_id = create_original_link(url)
 
-        print("\nScraping:", user_id)
+        print("\n[*]Scraping:", user_id)
 
         # creating profile folder
         try:
@@ -673,19 +682,10 @@ def scrap_profile(ids):
             # "/friends_hometown",
         ]
         elements_path = [
-        "//body[1]/div[1]/div[1]/div[1]/div[1]/div[3]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[4]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[3]/div[1]/div[2]/div[1]/a[1]/span[1]",
-        "//body[1]/div[1]/div[1]/div[1]/div[1]/div[3]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[4]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[3]/div[2]/div[2]/div[1]/a[1]/span[1]",
-        "//body[1]/div[1]/div[1]/div[1]/div[1]/div[3]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[4]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[3]/div[3]/div[2]/div[1]/a[1]/span[1]",
-        "//body[1]/div[1]/div[1]/div[1]/div[1]/div[3]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[4]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[3]/div[4]/div[2]/div[1]/a[1]/span[1]"
-
-            # "//*[contains(@id,'pagelet_timeline_medley_friends')][1]/div[2]/div/ul/li/div/a",
-            # "//*[contains(@id,'pagelet_timeline_medley_friends')][1]/div[2]/div/ul/li/div/a",
-            # "//*[contains(@class,'_3i9')][1]/div/div/ul/li[1]/div[2]/div/div/div/div/div[2]/ul/li/div/a",
-            # "//*[contains(@class,'fbProfileBrowserListItem')]/div/a",
-            # "//*[contains(@id,'pagelet_timeline_medley_friends')][1]/div[2]/div/ul/li/div/a",
-            # "//*[contains(@id,'pagelet_timeline_medley_friends')][1]/div[2]/div/ul/li/div/a",
-            # "//*[contains(@id,'pagelet_timeline_medley_friends')][1]/div[2]/div/ul/li/div/a",
-            # "//*[contains(@id,'pagelet_timeline_medley_friends')][1]/div[2]/div/ul/li/div/a",
+            "//body[1]/div[1]/div[1]/div[1]/div[1]/div[3]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[4]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[3]/div[1]/div[2]/div[1]/a[1]/span[1]",
+            # "//body[1]/div[1]/div[1]/div[1]/div[1]/div[3]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[4]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[3]/div[2]/div[2]/div[1]/a[1]/span[1]",
+            # "//body[1]/div[1]/div[1]/div[1]/div[1]/div[3]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[4]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[3]/div[3]/div[2]/div[1]/a[1]/span[1]",
+            # "//body[1]/div[1]/div[1]/div[1]/div[1]/div[3]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[4]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[3]/div[4]/div[2]/div[1]/a[1]/span[1]"
         ]
         file_names = [
             "All Friends.txt",
@@ -704,80 +704,80 @@ def scrap_profile(ids):
 
         # ----------------------------------------------------------------------------
 
-        # print("----------------------------------------")
-        # print("Photos..")
-        # print("Scraping Links..")
-        # # setting parameters for scrape_data() to scrap photos
-        # scan_list = ["'s Photos", "Photos of"]
-        # section = ["/photos_all", "/photos_of"]
-        # elements_path = ["//*[contains(@id, 'pic_')]"] * 2
-        # file_names = ["Uploaded Photos.txt", "Tagged Photos.txt"]
-        # save_status = 1
+        print("----------------------------------------")
+        print("Photos..")
+        print("Scraping Links..")
+        # setting parameters for scrape_data() to scrap photos
+        scan_list = ["'s Photos", "Photos of"]
+        section = ["/photos_all", "/photos_of"]
+        elements_path = ["//*[contains(@id, 'pic_')]"] * 2
+        file_names = ["Uploaded Photos.txt", "Tagged Photos.txt"]
+        save_status = 1
 
-        # scrape_data(user_id, scan_list, section, elements_path, save_status, file_names)
-        # print("Photos Done!")
+        scrape_data(user_id, scan_list, section, elements_path, save_status, file_names)
+        print("Photos Done!")
 
-        # # ----------------------------------------------------------------------------
-        # print("----------------------------------------")
-        # print("Videos:")
-        # # setting parameters for scrape_data() to scrap videos
-        # scan_list = ["'s Videos", "Videos of"]
-        # section = ["/videos_by", "/videos_of"]
-        # elements_path = [
-        #     "//*[contains(@id, 'pagelet_timeline_app_collection_')]/ul"
-        # ] * 2
-        # file_names = ["Uploaded Videos.txt", "Tagged Videos.txt"]
-        # save_status = 2
+        # ----------------------------------------------------------------------------
+        print("----------------------------------------")
+        print("Videos:")
+        # setting parameters for scrape_data() to scrap videos
+        scan_list = ["'s Videos", "Videos of"]
+        section = ["/videos_by", "/videos_of"]
+        elements_path = [
+            "//*[contains(@id, 'pagelet_timeline_app_collection_')]/ul"
+        ] * 2
+        file_names = ["Uploaded Videos.txt", "Tagged Videos.txt"]
+        save_status = 2
 
-        # scrape_data(user_id, scan_list, section, elements_path, save_status, file_names)
-        # print("Videos Done!")
-        # # ----------------------------------------------------------------------------
+        scrape_data(user_id, scan_list, section, elements_path, save_status, file_names)
+        print("Videos Done!")
+        # ----------------------------------------------------------------------------
 
-        # print("----------------------------------------")
-        # print("About:")
-        # # setting parameters for scrape_data() to scrap the about section
-        # scan_list = [None] * 7
-        # section = [
-        #     "/about?section=overview",
-        #     "/about?section=education",
-        #     "/about?section=living",
-        #     "/about?section=contact-info",
-        #     "/about?section=relationship",
-        #     "/about?section=bio",
-        #     "/about?section=year-overviews",
-        # ]
-        # elements_path = [
-        #     "//*[contains(@id, 'pagelet_timeline_app_collection_')]/ul/li/div/div[2]/div/div"
-        # ] * 7
-        # file_names = [
-        #     "Overview.txt",
-        #     "Work and Education.txt",
-        #     "Places Lived.txt",
-        #     "Contact and Basic Info.txt",
-        #     "Family and Relationships.txt",
-        #     "Details About.txt",
-        #     "Life Events.txt",
-        # ]
-        # save_status = 3
+        print("----------------------------------------")
+        print("About:")
+        # setting parameters for scrape_data() to scrap the about section
+        scan_list = [None] * 7
+        section = [
+            "/about?section=overview",
+            "/about?section=education",
+            "/about?section=living",
+            "/about?section=contact-info",
+            "/about?section=relationship",
+            "/about?section=bio",
+            "/about?section=year-overviews",
+        ]
+        elements_path = [
+            "//*[contains(@id, 'pagelet_timeline_app_collection_')]/ul/li/div/div[2]/div/div"
+        ] * 7
+        file_names = [
+            "Overview.txt",
+            "Work and Education.txt",
+            "Places Lived.txt",
+            "Contact and Basic Info.txt",
+            "Family and Relationships.txt",
+            "Details About.txt",
+            "Life Events.txt",
+        ]
+        save_status = 3
 
-        # scrape_data(user_id, scan_list, section, elements_path, save_status, file_names)
-        # print("About Section Done!")
+        scrape_data(user_id, scan_list, section, elements_path, save_status, file_names)
+        print("About Section Done!")
 
-    #     # ----------------------------------------------------------------------------
-    #     print("----------------------------------------")
-    #     print("Posts:")
-    #     # setting parameters for scrape_data() to scrap posts
-    #     scan_list = [None]
-    #     section = []
-    #     elements_path = ['//div[@class="_5pcb _4b0l _2q8l"]']
+        # ----------------------------------------------------------------------------
+        print("----------------------------------------")
+        print("Posts:")
+        # setting parameters for scrape_data() to scrap posts
+        scan_list = [None]
+        section = []
+        elements_path = ['//div[@class="_5pcb _4b0l _2q8l"]']
 
-    #     file_names = ["Posts.txt"]
-    #     save_status = 4
+        file_names = ["Posts.txt"]
+        save_status = 4
 
-    #     scrape_data(user_id, scan_list, section, elements_path, save_status, file_names)
-    #     print("Posts(Statuses) Done!")
-    #     print("----------------------------------------")
-    # # ----------------------------------------------------------------------------
+        scrape_data(user_id, scan_list, section, elements_path, save_status, file_names)
+        print("Posts(Statuses) Done!")
+        print("----------------------------------------")
+    # ----------------------------------------------------------------------------
 
     print("\nProcess Completed.")
 
@@ -801,9 +801,7 @@ def login(email, password):
     # try:
     global driver
     print("[*]will try to log in...")
-    display = Display(visible=0, size=(800, 800))  
-    display.start()
-    options = Options()
+    
 
     #  Code to disable notifications pop up of Chrome Browser
     options.add_argument("--disable-notifications")
@@ -825,7 +823,7 @@ def login(email, password):
             "and also make sure you have the latest Chrome Browser version."
             "\nYour OS: {}".format(platform_)
         )
-        driver.close()
+        driver.quit()
         exit(1) 
 
     print("[*]Going on facebook")
@@ -894,7 +892,7 @@ def scrapper(**kwargs):
 
         login(cfg["email"], cfg["password"])
         scrap_profile(ids)
-        driver.close()
+        driver.quit()
     else:
         print("Input file is empty.")
 
